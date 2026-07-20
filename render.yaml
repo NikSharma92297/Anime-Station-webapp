@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: anime-station-webapp
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_NAME
+        value: AnimeStation
+      - key: OWNER_ID
+        sync: false
+      - key: BOT_INTERNAL_URL
+        sync: false
+      - key: WEBAPP_SECRET
+        sync: false
+      - key: ADMIN_REQUESTS_CHANNEL_ID
+        sync: false
+      - key: REPORTS_CHANNEL_ID
+        sync: false
+      - key: MAX_DAILY_REQUESTS
+        value: "4"
