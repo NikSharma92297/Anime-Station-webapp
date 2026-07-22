@@ -21,6 +21,12 @@ A Flask-based Telegram Mini App (WebApp) for discovering, requesting, and report
 - **Join** — generates a one-time invite link (or returns a custom link) for an available anime's channel
 - **Telegram `initData` authentication** — every write action is verified against Telegram's own signature, no
   separate login system
+- **Force-sub gate** — mirrors the bot's own force-sub setup (`/addchnl`, `/fsub_mode` on the bot side): the first
+  thing `/api/auth` does is register brand-new users, then check they've joined every configured force-sub
+  channel. If not, the whole app is replaced with a full-screen "Access Denied" card listing the missing
+  channels as join buttons plus a Reload button — same channel list and request/normal mode the bot enforces,
+  just re-implemented with plain Bot API calls since the webapp has no live Pyrogram session. Admins, the owner,
+  and banned users skip this gate (banned users just see their banned status instead).
 
 ## Project layout
 
