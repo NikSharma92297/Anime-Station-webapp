@@ -880,3 +880,92 @@ html, body {
   cursor: pointer;
 }
 .top-req-delete:active { background: rgba(255, 92, 92, 0.25); transform: scale(0.92); }
+
+/* ============================================================
+   Force-sub gate — full-screen "Access Denied" block shown when the
+   user hasn't joined all required channels yet (see app.js applyFsubGate)
+   ============================================================ */
+.fsub-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.fsub-gate-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 28px 22px;
+  text-align: center;
+}
+
+.fsub-gate-icon { font-size: 40px; margin-bottom: 10px; }
+
+.fsub-gate-title {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--danger);
+  margin-bottom: 8px;
+}
+
+.fsub-gate-text {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.fsub-gate-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.fsub-gate-channel-btn {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--accent-dim);
+  background: var(--surface-2);
+  color: var(--accent);
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.fsub-gate-channel-btn:active { transform: scale(0.97); border-color: var(--accent); }
+
+.fsub-gate-channel-btn--unavailable {
+  color: var(--text-dim);
+  border-color: var(--line);
+  cursor: default;
+}
+
+.fsub-gate-reload {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: #1a1300;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.fsub-gate-reload:active { transform: scale(0.97); }
