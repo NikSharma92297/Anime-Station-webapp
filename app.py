@@ -48,6 +48,101 @@ def get_bot_username():
         pass
     return _bot_username_cache["value"]
 
+
+# ---------------------------------------------------------------------------
+# Force-sub gate — mirrors the bot's helper_func.is_sub()/is_subscribed(),
+# just reimplemented with raw Bot API calls since the webapp doesn't have a
+# live Pyrogram session. Membership status names differ (Bot API uses
+# plain strings like "member"/"creator" instead of Pyrogram's enum) but
+# the logic is the same: a normal-mode channel only needs live membership;
+# a request-mode channel also accepts a tracked join request, read
+# straight out of the same `request_forcesub_channel` collection the bot
+# itself writes to on every join request it receives.
+# ---------------------------------------------------------------------------
+_JOINED_STATUSES = {"creator", "administrator", "member"}
+_channel_info_cache = {}          # channel_id -> (title, url, cached_at)
+_CHANNEL_INFO_CACHE_TTL = 1800     # 30 min — just avoids hammering Telegram on every auth call
+
+
+def is_channel_member(user_id: int, channel_id: int) -> bool:
+    try:
+        r = requests.get(
+            f"{TELEGRAM_API}/getChatMember",
+            params={"chat_id": channel_id, "user_id": user_id},
+            timeout=8,
+        )
+        data = r.json()
+        if data.get("ok"):
+            return data["result"].get("status") in _JOINED_STATUSES
+    except Exception:
+        pass
+    return False
+
+
+def check_fsub_channel(user_id: int, channel_id: int, mode: str) -> bool:
+    if is_channel_member(user_id, channel_id):
+        return True
+    if mode == "on":
+        # Request-mode channel — a tracked (even if not yet approved) join
+        # request also counts, same as the bot's req_user_exist() check.
+        return bool(rqst_fsub_channel_col.find_one({"_id": channel_id, "user_ids": user_id}))
+    return False
+
+
+def get_channel_join_info(channel_id: int, mode: str):
+    """Returns (title, join_url) for a force-sub channel's "join now" button,
+    with a short in-memory cache so we're not calling getChat/creating a
+    fresh invite link on every single auth request."""
+    cached = _channel_info_cache.get(channel_id)
+    if cached and (time.time() - cached[2]) < _CHANNEL_INFO_CACHE_TTL:
+        return cached[0], cached[1]
+
+    title, url = f"Channel {channel_id}", None
+    try:
+        r = requests.get(f"{TELEGRAM_API}/getChat", params={"chat_id": channel_id}, timeout=8)
+        data = r.json()
+        if data.get("ok"):
+            chat = data["result"]
+            title = chat.get("title") or title
+            username = chat.get("username")
+            if username:
+                url = f"https://t.me/{username}"
+            elif chat.get("invite_link"):
+                url = chat["invite_link"]
+    except Exception:
+        pass
+
+    if url is None:
+        # Private chat with no existing invite link surfaced by getChat —
+        # ask Telegram to make one (bot needs "can_invite_users" there).
+        try:
+            r = requests.post(
+                f"{TELEGRAM_API}/createChatInviteLink",
+                json={"chat_id": channel_id, "creates_join_request": mode == "on"},
+                timeout=8,
+            )
+            data = r.json()
+            if data.get("ok"):
+                url = data["result"]["invite_link"]
+        except Exception:
+            pass
+
+    _channel_info_cache[channel_id] = (title, url, time.time())
+    return title, url
+
+
+def get_missing_fsub_channels(user_id: int):
+    """All configured force-sub channels the user hasn't joined yet, each
+    with a title + join URL for the frontend's Access Denied screen."""
+    missing = []
+    for ch in fsub_col.find():
+        channel_id = ch["_id"]
+        mode = ch.get("mode", "off")
+        if not check_fsub_channel(user_id, channel_id, mode):
+            title, url = get_channel_join_info(channel_id, mode)
+            missing.append({"id": channel_id, "title": title, "url": url})
+    return missing
+
 app = Flask(__name__)
 
 client = MongoClient(DB_URI)
@@ -57,6 +152,8 @@ admins_col = db["admins"]
 banned_col = db["banned_user"]
 anime_requests_col = db["anime_requests"]  # shared with the bot's `anime_requests_data`
 anime_request_log_col = db["anime_request_log"]  # one doc per submitted request, for the daily limit
+fsub_col = db["fsub"]  # shared with the bot's db.fsub_data (force-sub channels + mode)
+rqst_fsub_channel_col = db["request_forcesub_channel"]  # shared with the bot's tracked join-requests
 
 
 # ---------------------------------------------------------------------------
@@ -704,18 +801,35 @@ def auth():
     is_admin = bool(admins_col.find_one({"_id": user_id})) or user_id == OWNER_ID
     is_banned = bool(banned_col.find_one({"_id": user_id}))
 
+    if not is_registered:
+        # First time we've ever seen this user anywhere (webapp or bot) —
+        # just register them, plain and simple.
+        users_col.insert_one({"_id": user_id})
+        is_registered = True
+
+    response_user = {
+        "id": user_id,
+        "first_name": user.get("first_name", ""),
+        "last_name": user.get("last_name", ""),
+        "username": user.get("username", ""),
+        "photo_url": user.get("photo_url", ""),
+    }
+
+    # Force-sub gate — skipped for admins/owner and banned users, same as
+    # the bot's own is_subscribed(). Banned users get told they're banned
+    # elsewhere in the UI regardless of fsub status.
+    missing_channels = []
+    if not is_admin and not is_banned:
+        missing_channels = get_missing_fsub_channels(user_id)
+
     return jsonify({
         "ok": True,
-        "user": {
-            "id": user_id,
-            "first_name": user.get("first_name", ""),
-            "last_name": user.get("last_name", ""),
-            "username": user.get("username", ""),
-            "photo_url": user.get("photo_url", ""),
-        },
+        "user": response_user,
         "registered": is_registered,
         "is_admin": is_admin,
         "is_banned": is_banned,
+        "fsub_required": bool(missing_channels),
+        "channels": missing_channels,
     })
 
 
