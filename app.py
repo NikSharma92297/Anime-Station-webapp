@@ -49,19 +49,28 @@ def get_bot_username():
     return _bot_username_cache["value"]
 
 
+app = Flask(__name__)
+
+client = MongoClient(DB_URI)
+db = client[DB_NAME]
+users_col = db["users"]
+admins_col = db["admins"]
+banned_col = db["banned_user"]
+anime_requests_col = db["anime_requests"]  # shared with the bot's `anime_requests_data`
+anime_request_log_col = db["anime_request_log"]  # one doc per submitted request, for the daily limit
+fsub_col = db["fsub"]  # shared with the bot's db.fsub_data (force-sub channels + mode)
+
+
 # ---------------------------------------------------------------------------
-# Force-sub gate — mirrors the bot's helper_func.is_sub()/is_subscribed(),
-# just reimplemented with raw Bot API calls since the webapp doesn't have a
-# live Pyrogram session. Membership status names differ (Bot API uses
-# plain strings like "member"/"creator" instead of Pyrogram's enum) but
-# the logic is the same: a normal-mode channel only needs live membership;
-# a request-mode channel also accepts a tracked join request, read
-# straight out of the same `request_forcesub_channel` collection the bot
-# itself writes to on every join request it receives.
+# Force-sub gate — a lightweight yes/no check only. It does NOT try to
+# reproduce the bot's full is_sub()/is_subscribed() logic (request-mode
+# tracking, invite-link generation, etc.) — that stays on the bot side.
+# This just decides whether to show the Access Denied screen at all; the
+# screen's Join button hands off to the bot, which does the real,
+# authoritative check (including request-mode) and messages the user
+# directly if they still need to join something.
 # ---------------------------------------------------------------------------
 _JOINED_STATUSES = {"creator", "administrator", "member"}
-_channel_info_cache = {}          # channel_id -> (title, url, cached_at)
-_CHANNEL_INFO_CACHE_TTL = 1800     # 30 min — just avoids hammering Telegram on every auth call
 
 
 def is_channel_member(user_id: int, channel_id: int) -> bool:
@@ -79,81 +88,13 @@ def is_channel_member(user_id: int, channel_id: int) -> bool:
     return False
 
 
-def check_fsub_channel(user_id: int, channel_id: int, mode: str) -> bool:
-    if is_channel_member(user_id, channel_id):
-        return True
-    if mode == "on":
-        # Request-mode channel — a tracked (even if not yet approved) join
-        # request also counts, same as the bot's req_user_exist() check.
-        return bool(rqst_fsub_channel_col.find_one({"_id": channel_id, "user_ids": user_id}))
-    return False
-
-
-def get_channel_join_info(channel_id: int, mode: str):
-    """Returns (title, join_url) for a force-sub channel's "join now" button,
-    with a short in-memory cache so we're not calling getChat/creating a
-    fresh invite link on every single auth request."""
-    cached = _channel_info_cache.get(channel_id)
-    if cached and (time.time() - cached[2]) < _CHANNEL_INFO_CACHE_TTL:
-        return cached[0], cached[1]
-
-    title, url = f"Channel {channel_id}", None
-    try:
-        r = requests.get(f"{TELEGRAM_API}/getChat", params={"chat_id": channel_id}, timeout=8)
-        data = r.json()
-        if data.get("ok"):
-            chat = data["result"]
-            title = chat.get("title") or title
-            username = chat.get("username")
-            if username:
-                url = f"https://t.me/{username}"
-            elif chat.get("invite_link"):
-                url = chat["invite_link"]
-    except Exception:
-        pass
-
-    if url is None:
-        # Private chat with no existing invite link surfaced by getChat —
-        # ask Telegram to make one (bot needs "can_invite_users" there).
-        try:
-            r = requests.post(
-                f"{TELEGRAM_API}/createChatInviteLink",
-                json={"chat_id": channel_id, "creates_join_request": mode == "on"},
-                timeout=8,
-            )
-            data = r.json()
-            if data.get("ok"):
-                url = data["result"]["invite_link"]
-        except Exception:
-            pass
-
-    _channel_info_cache[channel_id] = (title, url, time.time())
-    return title, url
-
-
-def get_missing_fsub_channels(user_id: int):
-    """All configured force-sub channels the user hasn't joined yet, each
-    with a title + join URL for the frontend's Access Denied screen."""
-    missing = []
+def is_user_fsub_ok(user_id: int) -> bool:
+    """True if the user is a plain member of every configured force-sub
+    channel. No channels configured at all also counts as OK."""
     for ch in fsub_col.find():
-        channel_id = ch["_id"]
-        mode = ch.get("mode", "off")
-        if not check_fsub_channel(user_id, channel_id, mode):
-            title, url = get_channel_join_info(channel_id, mode)
-            missing.append({"id": channel_id, "title": title, "url": url})
-    return missing
-
-app = Flask(__name__)
-
-client = MongoClient(DB_URI)
-db = client[DB_NAME]
-users_col = db["users"]
-admins_col = db["admins"]
-banned_col = db["banned_user"]
-anime_requests_col = db["anime_requests"]  # shared with the bot's `anime_requests_data`
-anime_request_log_col = db["anime_request_log"]  # one doc per submitted request, for the daily limit
-fsub_col = db["fsub"]  # shared with the bot's db.fsub_data (force-sub channels + mode)
-rqst_fsub_channel_col = db["request_forcesub_channel"]  # shared with the bot's tracked join-requests
+        if not is_channel_member(user_id, ch["_id"]):
+            return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -818,9 +759,9 @@ def auth():
     # Force-sub gate — skipped for admins/owner and banned users, same as
     # the bot's own is_subscribed(). Banned users get told they're banned
     # elsewhere in the UI regardless of fsub status.
-    missing_channels = []
+    fsub_required = False
     if not is_admin and not is_banned:
-        missing_channels = get_missing_fsub_channels(user_id)
+        fsub_required = not is_user_fsub_ok(user_id)
 
     return jsonify({
         "ok": True,
@@ -828,8 +769,8 @@ def auth():
         "registered": is_registered,
         "is_admin": is_admin,
         "is_banned": is_banned,
-        "fsub_required": bool(missing_channels),
-        "channels": missing_channels,
+        "fsub_required": fsub_required,
+        "bot_username": get_bot_username(),
     })
 
 
