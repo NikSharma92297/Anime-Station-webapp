@@ -12,13 +12,14 @@
 <body>
 
 <!-- Force-sub gate — shown instead of the app when the user hasn't joined
-     all required channels yet. Populated/toggled from app.js. -->
+     all required channels yet. Toggled from app.js; Join hands off to the
+     bot, which does the real membership check and messages the user. -->
 <div id="fsub-gate" class="fsub-gate" style="display:none;">
   <div class="fsub-gate-card">
     <div class="fsub-gate-icon">🔒</div>
     <div class="fsub-gate-title">Access Denied</div>
-    <p class="fsub-gate-text">For using this, join all channels below.</p>
-    <div class="fsub-gate-channels" id="fsub-gate-channels"></div>
+    <p class="fsub-gate-text">You need to join our channel(s) to use this. Tap Join to continue.</p>
+    <a class="fsub-gate-join" id="fsub-gate-join" href="#" target="_blank" rel="noopener">📢 Join</a>
     <button class="fsub-gate-reload" id="fsub-gate-reload">↻ Reload</button>
   </div>
 </div>
