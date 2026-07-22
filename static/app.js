@@ -49,6 +49,18 @@ function escapeHtml(str) {
 
 let session = null;
 
+function getStartParam() {
+  // The startapp value this webapp itself was launched with, e.g. "anime_269"
+  // from https://t.me/<bot>/anidex?startapp=anime_269 — empty string if none.
+  return tg?.initDataUnsafe?.start_param || "";
+}
+
+function buildJoinDeepLink(botUsername) {
+  const startParam = getStartParam();
+  const payload = startParam ? `fsub_${startParam}` : "fsub";
+  return `https://t.me/${botUsername}?start=${payload}`;
+}
+
 async function boot() {
   const dot = document.getElementById("status-dot");
   const notice = document.getElementById("global-notice");
@@ -69,7 +81,7 @@ async function boot() {
   fillProfile(data);
 
   if (data.fsub_required) {
-    showFsubGate(data.channels || []);
+    showFsubGate(data.bot_username);
     return false;
   }
 
@@ -77,35 +89,22 @@ async function boot() {
   return true;
 }
 
-function showFsubGate(channels) {
-  const container = document.getElementById("fsub-gate-channels");
-  container.innerHTML = "";
+function showFsubGate(botUsername) {
+  const joinBtn = document.getElementById("fsub-gate-join");
 
-  if (channels.length === 0) {
-    const p = document.createElement("p");
-    p.className = "fsub-gate-text";
-    p.textContent = "Contact the bot admin — no join links are available right now.";
-    container.appendChild(p);
+  if (botUsername) {
+    const joinUrl = buildJoinDeepLink(botUsername);
+    joinBtn.href = joinUrl;
+    joinBtn.onclick = (e) => {
+      if (tg?.openTelegramLink) {
+        e.preventDefault();
+        tg.openTelegramLink(joinUrl);
+      }
+    };
+  } else {
+    joinBtn.removeAttribute("href");
+    joinBtn.onclick = (e) => e.preventDefault();
   }
-
-  channels.forEach(ch => {
-    const hasUrl = Boolean(ch.url);
-    const btn = document.createElement(hasUrl ? "a" : "div");
-    btn.className = "fsub-gate-channel-btn" + (hasUrl ? "" : " fsub-gate-channel-btn--unavailable");
-    btn.textContent = "📢 " + (ch.title || ("Channel " + ch.id));
-    if (hasUrl) {
-      btn.href = ch.url;
-      btn.target = "_blank";
-      btn.rel = "noopener";
-      btn.addEventListener("click", (e) => {
-        if (tg?.openTelegramLink && ch.url.includes("t.me/")) {
-          e.preventDefault();
-          tg.openTelegramLink(ch.url);
-        }
-      });
-    }
-    container.appendChild(btn);
-  });
 
   document.getElementById("fsub-gate").style.display = "flex";
   document.getElementById("app").style.display = "none";
