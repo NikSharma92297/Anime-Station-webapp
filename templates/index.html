@@ -11,6 +11,18 @@
 </head>
 <body>
 
+<!-- Force-sub gate — shown instead of the app when the user hasn't joined
+     all required channels yet. Populated/toggled from app.js. -->
+<div id="fsub-gate" class="fsub-gate" style="display:none;">
+  <div class="fsub-gate-card">
+    <div class="fsub-gate-icon">🔒</div>
+    <div class="fsub-gate-title">Access Denied</div>
+    <p class="fsub-gate-text">For using this, join all channels below.</p>
+    <div class="fsub-gate-channels" id="fsub-gate-channels"></div>
+    <button class="fsub-gate-reload" id="fsub-gate-reload">↻ Reload</button>
+  </div>
+</div>
+
 <div id="app">
 
   <!-- HOME (Anime Station) -->
