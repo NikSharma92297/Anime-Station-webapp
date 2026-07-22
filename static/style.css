@@ -883,7 +883,7 @@ html, body {
 
 /* ============================================================
    Force-sub gate — full-screen "Access Denied" block shown when the
-   user hasn't joined all required channels yet (see app.js applyFsubGate)
+   user hasn't joined all required channels yet (see app.js showFsubGate)
    ============================================================ */
 .fsub-gate {
   position: fixed;
@@ -924,38 +924,8 @@ html, body {
   line-height: 1.5;
 }
 
-.fsub-gate-channels {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.fsub-gate-channel-btn {
+.fsub-gate-join {
   display: block;
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--accent-dim);
-  background: var(--surface-2);
-  color: var(--accent);
-  font-family: var(--sans);
-  font-weight: 600;
-  font-size: 14px;
-  text-decoration: none;
-  cursor: pointer;
-  transition: transform 0.1s ease, border-color 0.15s ease;
-}
-
-.fsub-gate-channel-btn:active { transform: scale(0.97); border-color: var(--accent); }
-
-.fsub-gate-channel-btn--unavailable {
-  color: var(--text-dim);
-  border-color: var(--line);
-  cursor: default;
-}
-
-.fsub-gate-reload {
   width: 100%;
   padding: 12px 14px;
   border-radius: 10px;
@@ -965,7 +935,27 @@ html, body {
   font-family: var(--sans);
   font-weight: 700;
   font-size: 14px;
+  text-decoration: none;
+  text-align: center;
   cursor: pointer;
+  margin-bottom: 12px;
+  transition: transform 0.1s ease;
 }
 
-.fsub-gate-reload:active { transform: scale(0.97); }
+.fsub-gate-join:active { transform: scale(0.97); }
+
+.fsub-gate-reload {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.fsub-gate-reload:active { transform: scale(0.97); border-color: var(--accent); color: var(--accent); }
