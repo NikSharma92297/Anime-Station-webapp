@@ -59,16 +59,19 @@ banned_col = db["banned_user"]
 anime_requests_col = db["anime_requests"]  # shared with the bot's `anime_requests_data`
 anime_request_log_col = db["anime_request_log"]  # one doc per submitted request, for the daily limit
 fsub_col = db["fsub"]  # shared with the bot's db.fsub_data (force-sub channels + mode)
+rqst_fsub_channel_col = db["request_forcesub_channel"]  # shared with the bot's tracked join-requests
 
 
 # ---------------------------------------------------------------------------
-# Force-sub gate — a lightweight yes/no check only. It does NOT try to
-# reproduce the bot's full is_sub()/is_subscribed() logic (request-mode
-# tracking, invite-link generation, etc.) — that stays on the bot side.
-# This just decides whether to show the Access Denied screen at all; the
-# screen's Join button hands off to the bot, which does the real,
-# authoritative check (including request-mode) and messages the user
-# directly if they still need to join something.
+# Force-sub gate — a yes/no check only, no per-channel buttons or invite-link
+# generation (that stays on the bot side; the webapp's Join button just
+# hands off to the bot for the real flow). It DOES need to get the actual
+# subscribed/not-subscribed answer right though, including request-mode
+# channels: for those, a tracked join request counts as subscribed even
+# before an admin approves it — same as the bot's own is_sub(). Without this
+# fallback, anyone in a request-mode (non-auto-approve) channel would stay
+# stuck on the Access Denied screen forever, even right after requesting to
+# join, since getChatMember only reports actual membership.
 # ---------------------------------------------------------------------------
 _JOINED_STATUSES = {"creator", "administrator", "member"}
 
@@ -88,12 +91,24 @@ def is_channel_member(user_id: int, channel_id: int) -> bool:
     return False
 
 
+def has_tracked_join_request(user_id: int, channel_id: int) -> bool:
+    return bool(rqst_fsub_channel_col.find_one({"_id": channel_id, "user_ids": user_id}))
+
+
 def is_user_fsub_ok(user_id: int) -> bool:
-    """True if the user is a plain member of every configured force-sub
-    channel. No channels configured at all also counts as OK."""
+    """True if the user is subscribed to every configured force-sub channel:
+    actual membership for normal-mode channels, or actual membership OR a
+    tracked join request for request-mode channels. No channels configured
+    at all also counts as OK."""
     for ch in fsub_col.find():
-        if not is_channel_member(user_id, ch["_id"]):
-            return False
+        channel_id = ch["_id"]
+        mode = ch.get("mode", "off")
+
+        if is_channel_member(user_id, channel_id):
+            continue
+        if mode == "on" and has_tracked_join_request(user_id, channel_id):
+            continue
+        return False
     return True
 
 
