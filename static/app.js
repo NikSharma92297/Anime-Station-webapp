@@ -55,19 +55,82 @@ async function boot() {
 
   if (!initData) {
     dot.classList.add("offline");
-    return; // Anime browsing still works without a Telegram session.
+    return true; // no Telegram session at all — can't check fsub, let browsing through as before
   }
 
   const data = await api("/api/auth");
   if (!data.ok) {
     dot.classList.add("offline");
     notice.textContent = "Could not verify your Telegram session. Try reopening the app.";
-    return;
+    return true; // fail open on a verification/network error, don't block over a hiccup
   }
 
   session = data;
   fillProfile(data);
+
+  if (data.fsub_required) {
+    showFsubGate(data.channels || []);
+    return false;
+  }
+
+  hideFsubGate();
+  return true;
 }
+
+function showFsubGate(channels) {
+  const container = document.getElementById("fsub-gate-channels");
+  container.innerHTML = "";
+
+  if (channels.length === 0) {
+    const p = document.createElement("p");
+    p.className = "fsub-gate-text";
+    p.textContent = "Contact the bot admin — no join links are available right now.";
+    container.appendChild(p);
+  }
+
+  channels.forEach(ch => {
+    const hasUrl = Boolean(ch.url);
+    const btn = document.createElement(hasUrl ? "a" : "div");
+    btn.className = "fsub-gate-channel-btn" + (hasUrl ? "" : " fsub-gate-channel-btn--unavailable");
+    btn.textContent = "📢 " + (ch.title || ("Channel " + ch.id));
+    if (hasUrl) {
+      btn.href = ch.url;
+      btn.target = "_blank";
+      btn.rel = "noopener";
+      btn.addEventListener("click", (e) => {
+        if (tg?.openTelegramLink && ch.url.includes("t.me/")) {
+          e.preventDefault();
+          tg.openTelegramLink(ch.url);
+        }
+      });
+    }
+    container.appendChild(btn);
+  });
+
+  document.getElementById("fsub-gate").style.display = "flex";
+  document.getElementById("app").style.display = "none";
+}
+
+function hideFsubGate() {
+  document.getElementById("fsub-gate").style.display = "none";
+  document.getElementById("app").style.display = "";
+}
+
+document.getElementById("fsub-gate-reload").addEventListener("click", async () => {
+  const btn = document.getElementById("fsub-gate-reload");
+  const original = btn.textContent;
+  btn.textContent = "Checking...";
+  btn.disabled = true;
+
+  const passed = await boot();
+  if (passed) {
+    loadTrending();
+    loadPopular(true);
+  } else {
+    btn.textContent = original;
+    btn.disabled = false;
+  }
+});
 
 function fillProfile(data) {
   const u = data.user;
@@ -645,9 +708,13 @@ animeActionBtn.addEventListener("click", async () => {
   }
 });
 
-boot();
-loadTrending();
-loadPopular(true);
+(async function initApp() {
+  const passed = await boot();
+  if (passed) {
+    loadTrending();
+    loadPopular(true);
+  }
+})();
 
 // Launched via a group-search deep link (t.me/bot/shortname?startapp=anime_<id>)?
 (async function openFromStartParam() {
