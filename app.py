@@ -226,10 +226,15 @@ def anilist_query(variables, cache_key=None):
         if hit and hit[0] > time.time():
             return hit[1]
 
+    # Drop unset filters (genre/tag/format/status) instead of sending them
+    # as explicit null — keeps the payload identical to routes that never
+    # use them, avoiding any explicit-null-vs-absent quirk on AniList's end.
+    clean_variables = {k: v for k, v in variables.items() if v is not None}
+
     try:
         r = requests.post(
             ANILIST_URL,
-            json={"query": _ANIME_QUERY, "variables": variables},
+            json={"query": _ANIME_QUERY, "variables": clean_variables},
             timeout=15,
         )
         data = r.json()
