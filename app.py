@@ -162,7 +162,7 @@ def get_verified_user():
 _ANIME_FIELDS = """
     id
     title { romaji english native }
-    coverImage { large color }
+    coverImage { extraLarge large color }
     bannerImage
     genres
     description(asHtml: false)
