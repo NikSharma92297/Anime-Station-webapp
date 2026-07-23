@@ -282,7 +282,7 @@ function cacheMedia(list) {
 }
 
 function animeCardHtml(media, trending) {
-  const cover = media.coverImage?.large || "";
+  const cover = media.coverImage?.extraLarge || media.coverImage?.large || "";
   const title = titleOf(media);
   const score = media.averageScore
     ? `<span class="anime-card-score">${(media.averageScore / 10).toFixed(1)}</span>`
@@ -414,7 +414,7 @@ function azSectionId(letter) {
 }
 
 function availableCardHtml(media) {
-  const cover = media.coverImage?.large || "";
+  const cover = media.coverImage?.extraLarge || media.coverImage?.large || "";
   const title = titleOf(media);
   const score = media.averageScore
     ? `<span class="anime-card-score">${(media.averageScore / 10).toFixed(1)}</span>`
@@ -464,7 +464,7 @@ const STATUS_LABELS = {
 };
 
 function topRequestedRowHtml(media, rank) {
-  const cover = media.coverImage?.large || "";
+  const cover = media.coverImage?.extraLarge || media.coverImage?.large || "";
   const title = titleOf(media);
   const statusLabel = STATUS_LABELS[media.request_status] || "";
   const statusClass = media.request_status || "pending";
@@ -508,7 +508,7 @@ async function loadTopRequested() {
    ============================================================ */
 
 function myRequestRowHtml(media) {
-  const cover = media.coverImage?.large || "";
+  const cover = media.coverImage?.extraLarge || media.coverImage?.large || "";
   const title = titleOf(media);
   let statusClass = media.request_status || "pending";
   let statusLabel = STATUS_LABELS[statusClass] || STATUS_LABELS.pending;
@@ -685,7 +685,7 @@ searchInput2.addEventListener("input", () => {
 });
 
 function searchResultRowHtml(media) {
-  const cover = media.coverImage?.large || "";
+  const cover = media.coverImage?.extraLarge || media.coverImage?.large || "";
   const title = titleOf(media);
   const type = media.format ? media.format.replace(/_/g, " ") : "";
   const year = media.seasonYear || "";
@@ -795,11 +795,14 @@ document.addEventListener("click", (e) => {
 
 const animeModalOverlay = document.getElementById("anime-modal-overlay");
 const animeModalClose = document.getElementById("anime-modal-close");
-const animeModalCover = document.getElementById("anime-modal-cover");
+const animeModalBanner = document.getElementById("anime-modal-banner");
+const animeModalPoster = document.getElementById("anime-modal-poster");
 const animeModalTitle = document.getElementById("anime-modal-title");
+const animeModalSubtitle = document.getElementById("anime-modal-subtitle");
 const animeModalMeta = document.getElementById("anime-modal-meta");
 const animeModalGenres = document.getElementById("anime-modal-genres");
 const animeModalDesc = document.getElementById("anime-modal-desc");
+const animeModalReadMore = document.getElementById("anime-modal-read-more");
 const animeActionBtn = document.getElementById("anime-action-btn");
 const animeVoteBtn = document.getElementById("anime-vote-btn");
 const animeSetChannelBtn = document.getElementById("anime-set-channel-btn");
@@ -823,16 +826,35 @@ function metaPillsHtml(media) {
   return pills.join("");
 }
 
+// The secondary title shown under the main one (e.g. main = English title,
+// subtitle = Romaji) — whichever alternate title differs from the primary.
+function subtitleOf(media) {
+  const primary = titleOf(media);
+  const candidates = [media.title.romaji, media.title.english, media.title.native];
+  const alt = candidates.find(t => t && t !== primary);
+  return alt || "";
+}
+
 async function openAnimeModal(id) {
   const media = animeCache.get(id);
   if (!media) return;
 
   currentAnimeId = id;
-  animeModalCover.src = media.coverImage?.large || "";
+  const cover = media.coverImage?.extraLarge || media.coverImage?.large || "";
+  animeModalBanner.src = media.bannerImage || cover;
+  animeModalPoster.src = cover;
   animeModalTitle.textContent = titleOf(media);
+  animeModalSubtitle.textContent = subtitleOf(media);
   animeModalMeta.innerHTML = metaPillsHtml(media);
   animeModalGenres.innerHTML = (media.genres || []).map(g => `<span class="genre-pill">${escapeHtml(g)}</span>`).join("");
+
   animeModalDesc.textContent = stripHtml(media.description) || "No synopsis available.";
+  animeModalDesc.classList.remove("expanded");
+  animeModalReadMore.textContent = "Read More";
+  // Only show "Read More" if the synopsis actually overflows the 4-line clamp
+  requestAnimationFrame(() => {
+    animeModalReadMore.style.display = animeModalDesc.scrollHeight > animeModalDesc.clientHeight + 2 ? "block" : "none";
+  });
 
   animeSetChannelBtn.style.display = (session && session.is_admin) ? "block" : "none";
 
@@ -842,6 +864,11 @@ async function openAnimeModal(id) {
   clearInterval(statusPollTimer);
   statusPollTimer = setInterval(refreshActionButton, 8000);
 }
+
+animeModalReadMore.addEventListener("click", () => {
+  const expanded = animeModalDesc.classList.toggle("expanded");
+  animeModalReadMore.textContent = expanded ? "Show Less" : "Read More";
+});
 
 function closeAnimeModal() {
   animeModalOverlay.style.display = "none";
@@ -1040,7 +1067,7 @@ animeActionBtn.addEventListener("click", async () => {
       showInfoPopup("Couldn't send request", "Something went wrong — try again in a moment.", "error");
     }
   } else if (state === "accepted") {
-    showInfoPopup("Good news!", "This anime is coming soon. For updates, join @weebs_talk_station.", "warning");
+    showInfoPopup("Good news!", "This anime is coming soon.", "warning");
   } else if (state === "declined") {
     showInfoPopup("Not available", "This anime isn't available right now. Thank you for understanding.", "error");
   } else if (state === "join") {
