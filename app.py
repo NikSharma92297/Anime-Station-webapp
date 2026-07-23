@@ -171,18 +171,39 @@ _ANIME_FIELDS = """
     averageScore
     season
     seasonYear
+    format
+    duration
 """
 
 _ANIME_QUERY = f"""
-query ($page: Int, $perPage: Int, $sort: [MediaSort], $search: String) {{
+query ($page: Int, $perPage: Int, $sort: [MediaSort], $search: String, $genre: String, $tag: String, $format: MediaFormat, $status: MediaStatus) {{
   Page(page: $page, perPage: $perPage) {{
     pageInfo {{ hasNextPage total }}
-    media(type: ANIME, sort: $sort, search: $search) {{
+    media(type: ANIME, sort: $sort, search: $search, genre: $genre, tag: $tag, format: $format, status: $status) {{
       {_ANIME_FIELDS}
     }}
   }}
 }}
 """
+
+# Genres shown on the "Genres" tab. AniList treats most of these as real
+# genres, but a couple (Isekai) only exist as tags — filtered separately
+# below so both kinds work through the same /api/anime/genre/<slug> route.
+GENRE_LIST = [
+    {"slug": "action", "label": "Action", "kind": "genre", "value": "Action"},
+    {"slug": "adventure", "label": "Adventure", "kind": "genre", "value": "Adventure"},
+    {"slug": "comedy", "label": "Comedy", "kind": "genre", "value": "Comedy"},
+    {"slug": "drama", "label": "Drama", "kind": "genre", "value": "Drama"},
+    {"slug": "fantasy", "label": "Fantasy", "kind": "genre", "value": "Fantasy"},
+    {"slug": "horror", "label": "Horror", "kind": "genre", "value": "Horror"},
+    {"slug": "isekai", "label": "Isekai", "kind": "tag", "value": "Isekai"},
+    {"slug": "romance", "label": "Romance", "kind": "genre", "value": "Romance"},
+    {"slug": "sci-fi", "label": "Sci-Fi", "kind": "genre", "value": "Sci-Fi"},
+    {"slug": "slice-of-life", "label": "Slice of Life", "kind": "genre", "value": "Slice of Life"},
+    {"slug": "sports", "label": "Sports", "kind": "genre", "value": "Sports"},
+    {"slug": "thriller", "label": "Thriller", "kind": "genre", "value": "Thriller"},
+]
+_GENRE_BY_SLUG = {g["slug"]: g for g in GENRE_LIST}
 
 _anilist_cache = {}       # cache_key -> (expires_at, result)
 _ANILIST_CACHE_TTL = 600  # 10 minutes — trending/popular don't change second to second
@@ -256,16 +277,58 @@ def anime_popular():
     return jsonify({"ok": True, **result})
 
 
+@app.route("/api/anime/top-airing")
+def anime_top_airing():
+    page = int(request.args.get("page", 1))
+    result = anilist_query(
+        {"page": page, "perPage": 10, "sort": ["POPULARITY_DESC"], "search": None, "status": "RELEASING"},
+        cache_key=f"top_airing_{page}",
+    )
+    if result is None:
+        return jsonify({"ok": False, "error": "anilist_unavailable"}), 502
+    return jsonify({"ok": True, **result})
+
+
+_SEARCH_FORMATS = {"tv": "TV", "movie": "MOVIE", "ova": "OVA", "special": "SPECIAL"}
+
+
 @app.route("/api/anime/search")
 def anime_search():
     q = request.args.get("q", "").strip()
     if not q:
         return jsonify({"ok": True, "media": [], "pageInfo": {}})
 
-    result = anilist_query({"page": 1, "perPage": 24, "sort": ["SEARCH_MATCH"], "search": q})
+    fmt = _SEARCH_FORMATS.get(request.args.get("format", "").strip().lower())
+
+    result = anilist_query({"page": 1, "perPage": 24, "sort": ["SEARCH_MATCH"], "search": q, "format": fmt})
     if result is None:
         return jsonify({"ok": False, "error": "anilist_unavailable"}), 502
     return jsonify({"ok": True, **result})
+
+
+@app.route("/api/anime/genre-list")
+def anime_genre_list():
+    """Static list backing the Genres tab — just labels/slugs, no AniList call."""
+    return jsonify({"ok": True, "genres": [{"slug": g["slug"], "label": g["label"]} for g in GENRE_LIST]})
+
+
+@app.route("/api/anime/genre/<slug>")
+def anime_by_genre(slug):
+    genre_def = _GENRE_BY_SLUG.get(slug.lower())
+    if not genre_def:
+        return jsonify({"ok": False, "error": "unknown_genre"}), 404
+
+    page = int(request.args.get("page", 1))
+    variables = {"page": page, "perPage": 20, "sort": ["POPULARITY_DESC"], "search": None}
+    if genre_def["kind"] == "tag":
+        variables["tag"] = genre_def["value"]
+    else:
+        variables["genre"] = genre_def["value"]
+
+    result = anilist_query(variables, cache_key=f"genre_{slug}_{page}")
+    if result is None:
+        return jsonify({"ok": False, "error": "anilist_unavailable"}), 502
+    return jsonify({"ok": True, "label": genre_def["label"], **result})
 
 
 @app.route("/api/anime/single/<int:anilist_id>")
@@ -630,6 +693,46 @@ def anime_top_requested():
         m = dict(m)
         m["votes"] = len(d.get("voters", []))
         m["request_status"] = d.get("status", "pending")
+        media.append(m)
+
+    return jsonify({"ok": True, "media": media})
+
+
+@app.route("/api/anime/my-requests", methods=["POST"])
+def anime_my_requests():
+    """The calling user's own submitted requests (any status), most recent
+    first — separate from the global, vote-ranked /top-requested list."""
+    user = get_verified_user()
+    if not user:
+        return jsonify({"ok": False, "error": "invalid_init_data"}), 401
+
+    docs = list(anime_requests_col.find({"requester_id": user.get("id")}))
+    docs.sort(key=lambda d: d.get("requested_at", 0), reverse=True)
+
+    ids = [d["_id"] for d in docs]
+    if not ids:
+        return jsonify({"ok": True, "media": []})
+
+    try:
+        r = requests.post(
+            ANILIST_URL,
+            json={"query": _ANIME_BY_IDS_QUERY, "variables": {"ids": ids}},
+            timeout=15,
+        )
+        data = r.json()
+        media_by_id = {m["id"]: m for m in data.get("data", {}).get("Page", {}).get("media", [])}
+    except Exception:
+        media_by_id = {}
+
+    media = []
+    for d in docs:
+        m = media_by_id.get(d["_id"])
+        if not m:
+            continue
+        m = dict(m)
+        m["votes"] = len(d.get("voters", []))
+        m["request_status"] = d.get("status", "pending")
+        m["has_link"] = bool(d.get("channel_id") or d.get("custom_link"))
         media.append(m)
 
     return jsonify({"ok": True, "media": media})
