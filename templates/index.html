@@ -6,7 +6,7 @@
 <title>Anime Station</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -24,19 +24,68 @@
   </div>
 </div>
 
+<!-- Sidebar navigation drawer -->
+<div class="sidebar-overlay" id="sidebar-overlay">
+  <aside class="sidebar" id="sidebar" onclick="event.stopPropagation()">
+    <div class="sidebar-head">
+      <div class="brand brand--sidebar">
+        <span class="brand-text">ANIME<span class="cursor">_</span>STATION</span>
+      </div>
+      <button class="icon-btn" id="sidebar-close" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <button class="sidebar-profile" id="sidebar-profile" data-nav="profile">
+      <img id="sidebar-avatar" class="avatar" alt="" />
+      <div>
+        <div class="name" id="sidebar-name">Guest</div>
+        <div class="handle" id="sidebar-handle">not signed in</div>
+      </div>
+    </button>
+
+    <nav class="sidebar-nav">
+      <button class="sidebar-link" data-nav="home">
+        <span class="sidebar-link-icon">🏠</span> Home
+      </button>
+      <button class="sidebar-link" data-nav="search">
+        <span class="sidebar-link-icon">🔍</span> Search
+      </button>
+      <button class="sidebar-link" data-nav="genres">
+        <span class="sidebar-link-icon">🧩</span> Genres
+      </button>
+      <button class="sidebar-link" data-nav="requests">
+        <span class="sidebar-link-icon">📝</span> Requests
+      </button>
+      <button class="sidebar-link" data-nav="available">
+        <span class="sidebar-link-icon">📺</span> Available Anime
+      </button>
+      <button class="sidebar-link" data-nav="topRequested">
+        <span class="sidebar-link-icon">🏆</span> Top Requested
+      </button>
+      <div class="sidebar-divider"></div>
+      <button class="sidebar-link" data-nav="settings">
+        <span class="sidebar-link-icon">⚙️</span> Settings
+      </button>
+      <button class="sidebar-link" data-nav="about">
+        <span class="sidebar-link-icon">ℹ️</span> About
+      </button>
+    </nav>
+  </aside>
+</div>
+
+<!-- Toast notifications -->
+<div class="toast-container" id="toast-container"></div>
+
 <div id="app">
 
   <!-- HOME (Anime Station) -->
   <section id="view-home" class="view view--active">
     <header class="topbar">
       <div class="topbar-left">
-        <button class="icon-btn" id="btn-top-requested" title="Top Requested Animes">
+        <button class="icon-btn" id="btn-menu" title="Menu">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 4.5H16V9C16 11.4853 13.9853 13.5 11.5 13.5H12.5C10.0147 13.5 8 11.4853 8 9V4.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-            <path d="M8 5.5H5.5C5.5 8 6.5 9.5 8 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="M16 5.5H18.5C18.5 8 17.5 9.5 16 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="M12 13.5V17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="M9.5 17H14.5L15 19.5H9L9.5 17Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </button>
         <div class="brand">
@@ -45,17 +94,17 @@
         </div>
       </div>
       <div class="header-icons">
-        <button class="icon-btn" id="btn-profile" title="Profile">
+        <button class="icon-btn" id="btn-topbar-search" title="Search">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M4.5 19.5C5.8 16.2 8.6 14.5 12 14.5C15.4 14.5 18.2 16.2 19.5 19.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M20 20L16 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
     </header>
 
     <div class="search-wrap">
-      <input type="text" id="search-input" class="search-input" placeholder="Search anime..." autocomplete="off" />
+      <input type="text" id="search-input" class="search-input" placeholder="Search anime..." autocomplete="off" readonly />
       <span class="search-icon">
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
@@ -64,10 +113,12 @@
       </span>
     </div>
 
-    <p class="notice" id="global-notice"></p>
+    <div class="segmented" id="home-segmented">
+      <button class="segmented-btn segmented-btn--active" data-home-tab="all">All</button>
+      <button class="segmented-btn" data-home-tab="available">Available</button>
+    </div>
 
-    <!-- Search results (shown instead of trending/grid while searching) -->
-    <div id="search-results" class="anime-grid" style="display:none;"></div>
+    <p class="notice" id="global-notice"></p>
 
     <div id="available-section" style="display:none;">
       <div class="section-head">
@@ -88,6 +139,15 @@
       </div>
 
       <div class="section-head">
+        <span class="section-title">Top Airing</span>
+      </div>
+      <div class="trending-row" id="top-airing-row">
+        <div class="skel skel--card"></div>
+        <div class="skel skel--card"></div>
+        <div class="skel skel--card"></div>
+      </div>
+
+      <div class="section-head">
         <span class="section-title">Popular</span>
       </div>
       <div class="anime-grid" id="popular-grid">
@@ -99,11 +159,75 @@
 
       <button class="load-more-btn" id="btn-load-more">Load more</button>
     </div>
+  </section>
 
-    <nav class="bottom-nav" id="bottom-nav">
-      <button class="bottom-nav-btn bottom-nav-btn--active" data-bottom-tab="all">All</button>
-      <button class="bottom-nav-btn" data-bottom-tab="available">Available</button>
-    </nav>
+  <!-- SEARCH (dedicated screen) -->
+  <section id="view-search" class="view">
+    <header class="topbar topbar--sub">
+      <button class="back" data-back>&lsaquo; back</button>
+      <span class="topbar-title">Search</span>
+    </header>
+
+    <div class="search-wrap">
+      <input type="text" id="search-input-2" class="search-input" placeholder="Search anime..." autocomplete="off" />
+      <span class="search-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M20 20L16 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </span>
+    </div>
+
+    <div id="search-suggestions">
+      <div class="panel-head" id="recent-searches-head" style="display:none;">
+        <span>Recent Searches</span>
+        <button class="clear-link" id="btn-clear-recent">Clear</button>
+      </div>
+      <div class="chip-row" id="recent-searches-chips"></div>
+
+      <div class="panel-head" style="margin-top:20px;"><span>Popular Searches</span></div>
+      <div class="suggestion-list" id="popular-searches-list"></div>
+    </div>
+
+    <div id="search-active" style="display:none;">
+      <div class="pill-row" id="search-format-pills">
+        <button class="pill pill--active" data-format="">All</button>
+        <button class="pill" data-format="tv">TV</button>
+        <button class="pill" data-format="movie">Movie</button>
+        <button class="pill" data-format="ova">OVA</button>
+        <button class="pill" data-format="special">Special</button>
+      </div>
+      <div class="search-result-list" id="search-result-list"></div>
+    </div>
+  </section>
+
+  <!-- GENRES -->
+  <section id="view-genres" class="view">
+    <header class="topbar topbar--sub">
+      <button class="back" data-back>&lsaquo; back</button>
+      <span class="topbar-title">Genres</span>
+    </header>
+    <p class="sub" style="margin: 4px 0 16px;">Explore by genres</p>
+    <div class="genre-grid" id="genre-grid"></div>
+  </section>
+
+  <!-- GENRE DETAIL (anime filtered by one genre) -->
+  <section id="view-genre-detail" class="view">
+    <header class="topbar topbar--sub">
+      <button class="back" data-back data-back-to="genres">&lsaquo; back</button>
+      <span class="topbar-title" id="genre-detail-title">Genre</span>
+    </header>
+    <div class="anime-grid" id="genre-detail-grid"></div>
+    <button class="load-more-btn" id="btn-genre-load-more">Load more</button>
+  </section>
+
+  <!-- REQUESTS (My Requests) -->
+  <section id="view-requests" class="view">
+    <header class="topbar topbar--sub">
+      <button class="back" data-back>&lsaquo; back</button>
+      <span class="topbar-title">My Requests</span>
+    </header>
+    <div id="my-requests-list" class="top-requested-list"></div>
   </section>
 
   <!-- PROFILE -->
@@ -145,7 +269,80 @@
     </div>
   </section>
 
+  <!-- SETTINGS -->
+  <section id="view-settings" class="view">
+    <header class="topbar topbar--sub">
+      <button class="back" data-back>&lsaquo; back</button>
+      <span class="topbar-title">Settings</span>
+    </header>
+
+    <div class="panel">
+      <div class="panel-head"><span>App</span></div>
+      <dl class="kv">
+        <div class="kv-row"><dt>Version</dt><dd>1.0</dd></div>
+        <div class="kv-row"><dt>Theme</dt><dd>Dark (Violet)</dd></div>
+      </dl>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span>Need help?</span></div>
+      <p class="tile-desc" style="margin: 0 0 12px;">Notifications, requests, and channel links are all managed through the bot.</p>
+      <a class="fsub-gate-join" id="settings-open-bot" href="#" style="display:block;">💬 Open the bot</a>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="view-about" class="view">
+    <header class="topbar topbar--sub">
+      <button class="back" data-back>&lsaquo; back</button>
+      <span class="topbar-title">About</span>
+    </header>
+
+    <div class="panel about-panel">
+      <div class="about-logo">ANIME<span style="color:var(--accent2)">STATION</span></div>
+      <p class="sub">Your Ultimate Anime Hub</p>
+      <p class="tile-desc">
+        Browse trending &amp; popular anime, search by title or genre, request anime you want added,
+        and vote on other people's requests — all inside Telegram.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span>Features</span></div>
+      <ul class="about-list">
+        <li>✅ Lightweight</li>
+        <li>✅ Fast loading</li>
+        <li>✅ Smooth animations</li>
+        <li>✅ Mobile first</li>
+      </ul>
+    </div>
+  </section>
+
 </div>
+
+<!-- Bottom nav: Home / Search / Genres / Requests / Profile — shown on the 5 primary views -->
+<nav class="bottom-nav bottom-nav--visible" id="bottom-nav">
+  <button class="bottom-nav-btn bottom-nav-btn--active" data-tab="home">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 11L12 4L20 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 9.5V19.5H18V9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="bottom-nav-btn" data-tab="search">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="M20 20L16 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span>Search</span>
+  </button>
+  <button class="bottom-nav-btn" data-tab="genres">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="13" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>
+    <span>Genres</span>
+  </button>
+  <button class="bottom-nav-btn" data-tab="requests">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="4" width="14" height="17" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M9 3.5H15V6H9V3.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 12H15.5M8.5 16H13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span>Requests</span>
+  </button>
+  <button class="bottom-nav-btn" data-tab="profile">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 19.5C5.8 16.2 8.6 14.5 12 14.5C15.4 14.5 18.2 16.2 19.5 19.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span>Profile</span>
+  </button>
+</nav>
 
 <!-- ANIME DETAILS MODAL -->
 <div class="modal-overlay" id="anime-modal-overlay" style="display:none;">
@@ -157,6 +354,7 @@
     </div>
     <div class="anime-modal-body">
       <h2 class="anime-modal-title" id="anime-modal-title">&mdash;</h2>
+      <div class="anime-modal-meta" id="anime-modal-meta"></div>
       <div class="anime-modal-genres" id="anime-modal-genres"></div>
       <p class="anime-modal-desc" id="anime-modal-desc">&mdash;</p>
       <div class="anime-action-row">
@@ -164,7 +362,7 @@
         <button class="anime-set-channel-btn" id="anime-set-channel-btn" style="display:none;" title="Set channel (admin only)">+</button>
       </div>
       <button class="anime-vote-btn" id="anime-vote-btn" style="display:none;"></button>
-      <button class="report-btn" id="report-btn">🚩 Report an issue</button>
+      <button class="report-btn" id="report-btn">🚩 Report</button>
     </div>
   </div>
 </div>
@@ -172,20 +370,24 @@
 <!-- Report an issue -->
 <div class="modal-overlay" id="report-modal-overlay" style="display:none;">
   <div class="modal">
-    <div class="modal-title">Report an issue</div>
-    <div class="report-options" id="report-options">
-      <button class="report-option" data-reason="link_not_working">Link isn't working</button>
-      <button class="report-option" data-reason="wrong_anime">Wrong anime uploaded</button>
-      <button class="report-option" data-reason="missing_episodes">Episodes are missing</button>
-      <button class="report-option" data-reason="poor_quality">Poor video quality</button>
-      <button class="report-option" data-reason="wrong_channel">Wrong channel linked</button>
-      <button class="report-option" data-reason="other">Other</button>
+    <div class="modal-head-row">
+      <div class="modal-title">Report Anime</div>
+      <button class="modal-x" id="report-close-x">&#10005;</button>
     </div>
-    <input type="text" id="report-message-input" class="modal-input" placeholder="Optional details (max 50 chars)" maxlength="50" autocomplete="off" style="margin-top:10px;" />
+    <div class="modal-label">Select a reason</div>
+    <div class="report-options" id="report-options">
+      <button class="report-option" data-reason="link_not_working"><span class="radio-dot"></span>Link isn't working</button>
+      <button class="report-option" data-reason="wrong_anime"><span class="radio-dot"></span>Wrong anime uploaded</button>
+      <button class="report-option" data-reason="missing_episodes"><span class="radio-dot"></span>Episodes are missing</button>
+      <button class="report-option" data-reason="poor_quality"><span class="radio-dot"></span>Poor video quality</button>
+      <button class="report-option" data-reason="wrong_channel"><span class="radio-dot"></span>Wrong channel linked</button>
+      <button class="report-option" data-reason="other"><span class="radio-dot"></span>Other (please specify)</button>
+    </div>
+    <textarea id="report-message-input" class="modal-input modal-textarea" placeholder="Write your message... (max 50 chars)" maxlength="50" style="margin-top:12px;"></textarea>
+    <div class="char-counter"><span id="report-char-count">0</span>/50</div>
     <div class="modal-error" id="report-error"></div>
     <div class="modal-actions">
-      <button class="modal-btn modal-btn--cancel" id="report-cancel">Cancel</button>
-      <button class="modal-btn modal-btn--confirm" id="report-submit">Submit</button>
+      <button class="modal-btn modal-btn--confirm modal-btn--full" id="report-submit">Submit Report</button>
     </div>
   </div>
 </div>
@@ -212,17 +414,6 @@
     <div class="modal-actions">
       <button class="modal-btn modal-btn--cancel" id="delete-confirm-cancel">Cancel</button>
       <button class="modal-btn modal-btn--confirm modal-btn--danger" id="delete-confirm-submit">Remove</button>
-    </div>
-  </div>
-</div>
-
-<!-- Simple info popup (used for Coming Soon / Not Available taps) -->
-<div class="modal-overlay" id="info-popup-overlay" style="display:none;">
-  <div class="modal">
-    <div class="modal-title" id="info-popup-title">Notice</div>
-    <p class="info-popup-text" id="info-popup-text"></p>
-    <div class="modal-actions">
-      <button class="modal-btn modal-btn--confirm" id="info-popup-close">OK</button>
     </div>
   </div>
 </div>
