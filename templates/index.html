@@ -348,15 +348,23 @@
 <div class="modal-overlay" id="anime-modal-overlay" style="display:none;">
   <div class="anime-modal">
     <button class="anime-modal-close" id="anime-modal-close">&#10005;</button>
-    <div class="anime-modal-cover-wrap">
-      <img id="anime-modal-cover" class="anime-modal-cover" alt="" />
-      <div class="anime-modal-cover-fade"></div>
+    <div class="anime-modal-banner-wrap">
+      <img id="anime-modal-banner" class="anime-modal-banner" alt="" />
+      <div class="anime-modal-banner-fade"></div>
     </div>
     <div class="anime-modal-body">
-      <h2 class="anime-modal-title" id="anime-modal-title">&mdash;</h2>
-      <div class="anime-modal-meta" id="anime-modal-meta"></div>
+      <div class="anime-modal-head-row">
+        <img id="anime-modal-poster" class="anime-modal-poster" alt="" />
+        <div class="anime-modal-head-info">
+          <h2 class="anime-modal-title" id="anime-modal-title">&mdash;</h2>
+          <p class="anime-modal-subtitle" id="anime-modal-subtitle"></p>
+          <div class="anime-modal-meta" id="anime-modal-meta"></div>
+        </div>
+      </div>
       <div class="anime-modal-genres" id="anime-modal-genres"></div>
+      <div class="panel-head" style="margin: 16px 0 8px;"><span>Synopsis</span></div>
       <p class="anime-modal-desc" id="anime-modal-desc">&mdash;</p>
+      <button class="read-more-link" id="anime-modal-read-more" style="display:none;">Read More</button>
       <div class="anime-action-row">
         <button class="anime-action-btn" id="anime-action-btn">Request Anime</button>
         <button class="anime-set-channel-btn" id="anime-set-channel-btn" style="display:none;" title="Set channel (admin only)">+</button>
